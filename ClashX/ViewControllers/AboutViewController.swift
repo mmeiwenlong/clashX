@@ -9,64 +9,65 @@
 import Cocoa
 
 class AboutViewController: NSViewController {
+    @IBOutlet var versionLabel: NSTextField!
+    @IBOutlet var buildTimeLabel: NSTextField!
+    @IBOutlet var coreVersionLabel: NSTextField!
 
-    @IBOutlet weak var versionLabel: NSTextField!
-    @IBOutlet weak var buildTimeLabel: NSTextField!
-    
-    var compileDate:Date
-    {
+    lazy var compileDate: Date = {
         let bundleName = Bundle.main.infoDictionary!["CFBundleName"] as? String ?? "Info.plist"
         if let infoPath = Bundle.main.path(forResource: bundleName, ofType: nil),
             let infoAttr = try? FileManager.default.attributesOfItem(atPath: infoPath),
-            let infoDate = infoAttr[FileAttributeKey.creationDate] as? Date
-        { return infoDate }
+            let infoDate = infoAttr[FileAttributeKey.creationDate] as? Date {
+            return infoDate
+        }
         return Date()
-    }
-    
+    }()
+
+    lazy var clashCoreVersion: String = {
+        return Bundle.main.infoDictionary?["coreVersion"] as? String ?? "unknown"
+    }()
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.title = "About"
-        
+        title = "About"
+
         let version = AppVersionUtil.currentVersion
         let build = AppVersionUtil.currentBuild
-        
-        self.versionLabel.stringValue = "Version: \(version) (\(build))"
-        self.buildTimeLabel.stringValue = self.compileDate.description;
 
+        versionLabel.stringValue = "Version: \(version) (\(build))"
+        coreVersionLabel.stringValue = clashCoreVersion
+        buildTimeLabel.stringValue = compileDate.description
     }
-    
+
     override func viewWillAppear() {
-        super .viewWillAppear()
+        super.viewWillAppear()
         NSApp.activate(ignoringOtherApps: true)
-        self.view.window?.styleMask.remove(.resizable)
-        self.view.window?.makeKeyAndOrderFront(self)
+        view.window?.styleMask.remove(.resizable)
+        view.window?.makeKeyAndOrderFront(self)
     }
-    
 }
-
 
 @IBDesignable
 class HyperlinkTextField: NSTextField {
-    
     @IBInspectable var href: String = ""
-    
+
     override func resetCursorRects() {
         discardCursorRects()
-        addCursorRect(self.bounds, cursor: NSCursor.pointingHand)
+        addCursorRect(bounds, cursor: NSCursor.pointingHand)
     }
-    
+
     override func awakeFromNib() {
         super.awakeFromNib()
-        
-        // TODO:  Fix this and get the hover click to work.
-        
+
+        // TODO: Fix this and get the hover click to work.
+
         let attributes: [NSAttributedString.Key: Any] = [
             NSAttributedString.Key.foregroundColor: NSColor.blue,
-            NSAttributedString.Key.underlineStyle: NSUnderlineStyle.single.rawValue as AnyObject
+            NSAttributedString.Key.underlineStyle: NSUnderlineStyle.single.rawValue as AnyObject,
         ]
-        attributedStringValue = NSAttributedString(string: self.stringValue, attributes: attributes)
+        attributedStringValue = NSAttributedString(string: stringValue, attributes: attributes)
     }
-    
+
     override func mouseDown(with theEvent: NSEvent) {
         if let localHref = URL(string: href) {
             NSWorkspace.shared.open(localHref)

@@ -2,30 +2,30 @@
 //  RemoteConfigModel.swift
 //  ClashX
 //
-//  Created by 称一称 on 2019/7/28.
+//  Created by yicheng on 2019/7/28.
 //  Copyright © 2019 west2online. All rights reserved.
 //
 
 import Cocoa
 
 class RemoteConfigModel: Codable {
-    let url: String
+    var url: String
     let name: String
     var updateTime: Date?
     var updating = false
-    
-    init(url:String, name:String, updateTime:Date? = nil) {
+
+    init(url: String, name: String, updateTime: Date? = nil) {
         self.url = url
         self.name = name
         self.updateTime = updateTime
     }
-    
-    private enum CodingKeys : String, CodingKey {
+
+    private enum CodingKeys: String, CodingKey {
         case url, name, updateTime
     }
-    
+
     func displayingTimeString() -> String {
-        if updating {return NSLocalizedString("Updating", comment: "")}
+        if updating { return NSLocalizedString("Updating", comment: "") }
         let dateFormater = DateFormatter()
         dateFormater.dateFormat = "MM-dd HH:mm"
         if let date = updateTime {

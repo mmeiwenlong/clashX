@@ -47,7 +47,7 @@ class WebPortalManager {
     
     func refreshApiUrl(complete:(()->())?=nil) {
         print("getting real api url")
-        request(entranceUrl, method: .head).response(queue: DispatchQueue.global()) { res in
+        AF.request(entranceUrl, method: .head).response(queue: DispatchQueue.global()) { res in
             guard let targetUrl = res.response?.url,
             let scheme = targetUrl.scheme,
             let host = targetUrl.host
@@ -78,7 +78,7 @@ class WebPortalManager {
 //                return self.req(url, method: method, parameters: parameters, encoding: encoding)
 //            }
             
-            return request(apiUrl + url,
+            return AF.request(apiUrl + url,
                            method: method,
                            parameters: parameters,
                            encoding:encoding,
@@ -93,7 +93,7 @@ class WebPortalManager {
                 [weak self]
                 resp in
                 guard let self = self else {return}
-                guard let r = resp.result.value else {
+                guard let r = try? resp.result.get() else {
                     if resp.response?.statusCode == 200 {
                         self.username = mail
                         complete?(nil)
@@ -145,7 +145,7 @@ class WebPortalManager {
     func getRemoteConfig(token:String, complete:((String?,String?)->())?=nil) {
         
         req("/api/v1/managed/clash_ss", method: .post, parameters: ["access_token":token], encoding: JSONEncoding.default).responseJSON { res in
-            guard let value = res.result.value else {
+            guard let value = try? res.result.get() else {
                 complete?("请求失败", nil)
                 return
             }
@@ -175,10 +175,19 @@ class WebPortalManager {
                 return
             }
             
-            let config = RemoteConfigModel(url: url!, name: "DlerCloud")
-            RemoteConfigManager.shared.configs = [config]
+            let name = "DlerCloud"
+            let finalConfig: RemoteConfigModel
+            if let model = RemoteConfigManager.shared.configs.first(where:{ $0.name == name }) {
+                model.url = url!
+                finalConfig = model
+            } else {
+                let config = RemoteConfigModel(url: url!, name: "DlerCloud")
+                RemoteConfigManager.shared.configs.append(config)
+                finalConfig = config
+            }
+            
             RemoteConfigManager.shared.saveConfigs()
-            complete?(nil, config)
+            complete?(nil, finalConfig)
         }
     }
     
@@ -202,6 +211,8 @@ class WebPortalManager {
                 guard let config = config else {return}
                 config.updateTime = Date()
                 RemoteConfigManager.shared.saveConfigs()
+                ConfigManager.selectConfigName = config.name
+                NotificationCenter.default.post(Notification(name: kShouldUpDateConfig))
             })
         }
     }
