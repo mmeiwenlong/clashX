@@ -23,6 +23,10 @@ class AppVersionUtil: NSObject {
         return Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
     }
 
+    static var isBeta: Bool {
+        return Bundle.main.object(forInfoDictionaryKey: "BETA") as? Bool ?? false
+    }
+
     override init() {
         lastVersionNumber = UserDefaults.standard.string(forKey: AppVersionUtil.kLastVersionNumberKey)
         UserDefaults.standard.set(AppVersionUtil.currentVersion, forKey: AppVersionUtil.kLastVersionNumberKey)

@@ -108,6 +108,7 @@ class MenuItemFactory {
 
             submenu.addItem(proxyMenuItem)
         }
+        addSpeedTestMenuItem(submenu, proxyGroup: proxyGroup)
         menu.submenu = submenu
         return menu
     }
@@ -117,7 +118,7 @@ class MenuItemFactory {
         menus.addItem(NSMenuItem.separator())
         let speedTestItem = ProxyGroupSpeedTestMenuItem(group: proxyGroup)
         speedTestItem.target = MenuItemFactory.self
-        speedTestItem.action = #selector(empty)
+        speedTestItem.action = #selector(actionSpeedTest)
         menus.addItem(speedTestItem)
     }
 
@@ -145,7 +146,7 @@ class MenuItemFactory {
             proxyItem.target = MenuItemFactory.self
             submenu.addItem(proxyItem)
         }
-
+        addSpeedTestMenuItem(submenu, proxyGroup: proxyGroup)
         menu.submenu = submenu
 
         return menu
@@ -177,7 +178,7 @@ extension MenuItemFactory {
                 // remember select proxy
                 let newModel = SavedProxyModel(group: proxyGroup, selected: proxyName, config: ConfigManager.selectConfigName)
                 ConfigManager.selectedProxyRecords.removeAll { model -> Bool in
-                    return model == newModel
+                    return model.key == newModel.key
                 }
                 ConfigManager.selectedProxyRecords.append(newModel)
                 // terminal Connections for this group
@@ -191,9 +192,14 @@ extension MenuItemFactory {
         AppDelegate.shared.updateConfig(configName: config, showNotification: false) {
             err in
             if err == nil {
-                ConnectionManager.closeConnectionExpectDirect()
+                ConnectionManager.closeAllConnection()
             }
         }
+    }
+
+    @objc static func actionSpeedTest(sender: ProxyGroupSpeedTestMenuItem) {
+        guard sender.testType == .reTest else { return }
+        ApiRequest.healthCheck(proxy: sender.proxyGroup.name)
     }
 
     @objc static func empty() {}

@@ -40,6 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @IBOutlet var httpPortMenuItem: NSMenuItem!
     @IBOutlet var socksPortMenuItem: NSMenuItem!
     @IBOutlet var apiPortMenuItem: NSMenuItem!
+    @IBOutlet var ipMenuItem: NSMenuItem!
     @IBOutlet var remoteConfigAutoupdateMenuItem: NSMenuItem!
     @IBOutlet var buildApiModeMenuitem: NSMenuItem!
     @IBOutlet var showProxyGroupCurrentMenuItem: NSMenuItem!
@@ -162,9 +163,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     SystemProxyManager.shared.enableProxy(port: config.port, socksPort: config.socketPort)
                 }
 
-                self.httpPortMenuItem.title = "Http Port:\(config.port)"
-                self.socksPortMenuItem.title = "Socks Port:\(config.socketPort)"
-                self.apiPortMenuItem.title = "Api Port:\(ConfigManager.shared.apiPort)"
+                self.httpPortMenuItem.title = "Http Port: \(config.port)"
+                self.socksPortMenuItem.title = "Socks Port: \(config.socketPort)"
+                self.apiPortMenuItem.title = "Api Port: \(ConfigManager.shared.apiPort)"
+                self.ipMenuItem.title = "IP: \(NetworkChangeNotifier.getPrimaryIPAddress() ?? "")"
+
+                if config.port == 0 || config.socketPort == 0 {
+                    self.showClashPortErrorAlert()
+                }
 
             }.disposed(by: disposeBag)
 
@@ -204,7 +210,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .rx
             .notification(kSystemNetworkStatusDidChange)
             .observeOn(MainScheduler.instance)
+            .delay(.milliseconds(200), scheduler: MainScheduler.instance)
             .bind { _ in
+                guard NetworkChangeNotifier.getPrimaryInterface() != nil else { return }
                 let (http, https, socks) = NetworkChangeNotifier.currentSystemProxySetting()
                 let currentPort = ConfigManager.shared.currentConfig?.port ?? 0
                 let currentSocks = ConfigManager.shared.currentConfig?.socketPort ?? 0
@@ -321,7 +329,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.resetStreamApi()
                 self.selectOutBoundModeWithMenory()
                 self.selectAllowLanWithMenory()
-                ConfigFileManager.checkFinalRuleAndShowAlert()
                 if showNotification {
                     NSUserNotificationCenter.default
                         .post(title: NSLocalizedString("Reload Config Succeed", comment: ""),
@@ -340,6 +347,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ConnectionManager.addCloseOptionMenuItem(&experimentalMenu)
         AutoUpgardeManager.shared.setup()
         AutoUpgardeManager.shared.addChanelMenuItem(&experimentalMenu)
+        if WebPortalManager.hasWebProtal {
+            WebPortalManager.shared.addWebProtalMenuItem(&statusMenu)
+        }
         updateExperimentalFeatureStatus()
     }
 
@@ -452,9 +462,7 @@ extension AppDelegate {
 
 extension AppDelegate: ApiRequestStreamDelegate {
     func didUpdateTraffic(up: Int, down: Int) {
-        DispatchQueue.main.async {
-            self.statusItemView.updateSpeedLabel(up: up, down: down)
-        }
+        statusItemView.updateSpeedLabel(up: up, down: down)
     }
 
     func didGetLog(log: String, level: String) {
@@ -570,10 +578,11 @@ extension AppDelegate {
         let copy = [SavedProxyModel](ConfigManager.selectedProxyRecords)
         for item in copy {
             guard item.config == ConfigManager.selectConfigName else { continue }
+            Logger.log("Auto selecting \(item.group) \(item.selected)", level: .debug)
             ApiRequest.updateProxyGroup(group: item.group, selectProxy: item.selected) { success in
                 if !success {
                     ConfigManager.selectedProxyRecords.removeAll { model -> Bool in
-                        return model == item
+                        return model.key == item.key
                     }
                 }
             }
@@ -593,6 +602,7 @@ extension AppDelegate {
     func selectOutBoundModeWithMenory() {
         ApiRequest.updateOutBoundMode(mode: ConfigManager.selectOutBoundMode) {
             [weak self] _ in
+            ConnectionManager.closeAllConnection()
             self?.syncConfig()
         }
     }
@@ -654,5 +664,15 @@ extension AppDelegate {
                 NotificationCenter.default.post(name: Notification.Name(rawValue: "didGetUrl"), object: nil, userInfo: userInfo)
             }
         }
+    }
+}
+
+// MARK: - Alerts
+
+extension AppDelegate {
+    func showClashPortErrorAlert() {
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("ClashX Start Error!", comment: "")
+        alert.informativeText = NSLocalizedString("Ports Open Fail, Please try to restart ClashX", comment: "")
     }
 }
